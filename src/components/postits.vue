@@ -140,16 +140,16 @@ export default {
         },
       ],
       postits: [
-        {
-          text: "事件風暴",
-          color: "yellow",
-          pos: { x: 20, y: 0 }, //pos = position
-        },
-        {
-          text: "事件風暴",
-          color: "yellow",
-          pos: { x: 20, y: 400 },
-        },
+        // {
+        //   text: "事件風暴",
+        //   color: "yellow",
+        //   pos: { x: 20, y: 400 },
+        // },
+        // {
+        //   text: "事件風暴",
+        //   color: "yellow",
+        //   pos: { x: 20, y: 400 },
+        // },
       ],
       nowId: -1,
       mousePos: {
@@ -262,12 +262,15 @@ body,
   right: 20px;
   top: 40px;
   width: 185px;
+  overflow-y: scroll;
+  max-height: 96vh;
 }
 
 /* .text {
   pointer-events: none;
   用了就點不到便利貼
 } */
+
 .buttonList .btn {
   /* width: 20px;
   height: 20px; */
