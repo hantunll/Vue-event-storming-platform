@@ -10,14 +10,14 @@
         @mousemove="onmousemove($event)"
         @mouseup="onmouseup()"
       >
-        {{ p.text }}
+        {{ p.content }}
         <div class="colorList">
           <div
             class="block"
             v-for="(color, id) in colorList"
             :key="id"
             :style="{ backgroundColor: color.color }"
-            @click="p.color = color.name"
+            @click="p.category = color.name"
           ></div>
         </div>
         <div class="buttonList">
@@ -39,7 +39,7 @@
               />
             </svg>
           </b-button>
-          <b-button class="btnDown" @click="postits.splice(pid, 1)">
+          <b-button class="btnDown" @click="deletePostit(pid)">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="16"
@@ -59,15 +59,18 @@
           </b-button>
         </div>
       </div>
-      <!-- 便利貼下方的工具欄 -->
     </transition-group>
+    <!-- 便利貼下方的工具欄 -->
     <div class="datalist">
       <b-button @click="addPostit" style="margin-left: 30px; margin-top: 20px;">
         + 新增便利貼
       </b-button>
       <div v-for="(p, pid) in postits" :key="pid" style="padding: 10px">
         <!-- <input v-model="p.text" /> -->
-        <b-form-input v-model="p.text"></b-form-input>
+        <b-form-input
+          v-model="p.content"
+          v-on:change="update(pid)"
+        ></b-form-input>
         <!-- 不能叫colorList不然會被跟者改 -->
         <div class="controlColor">
           <div
@@ -75,9 +78,9 @@
             v-for="(color, id) in colorList"
             :key="id"
             :style="{ backgroundColor: color.color }"
-            @click="p.color = color.name"
+            @click="p.category = color.name"
           ></div>
-          <b-button class="deleteButton" @click="postits.splice(pid, 1)"
+          <b-button class="deleteButton" @click="deletePostit(pid)"
             ><svg
               xmlns="http://www.w3.org/2000/svg"
               width="16"
@@ -101,7 +104,6 @@
 </template>
 
 <script>
-// import drag from "./drag.vue";
 export default {
   data: function() {
     return {
@@ -139,18 +141,7 @@ export default {
           color: "#fdf9bf",
         },
       ],
-      postits: [
-        // {
-        //   text: "事件風暴",
-        //   color: "yellow",
-        //   pos: { x: 20, y: 400 },
-        // },
-        // {
-        //   text: "事件風暴",
-        //   color: "yellow",
-        //   pos: { x: 20, y: 400 },
-        // },
-      ],
+      postits: [],
       nowId: -1,
       mousePos: {
         x: 0,
@@ -162,12 +153,20 @@ export default {
       },
     };
   },
+  // 把後端資料庫的資料掛載到網頁上
+  mounted() {
+    this.axios
+      .get("https://cip2021backend.cathaycloudteam.net/project/1/note")
+      .then((res) => {
+        this.postits = res.data;
+      });
+  },
   watch: {
     mousePos() {
       if (this.nowId != -1) {
         let nowPostit = this.postits[this.nowId];
-        nowPostit.pos.x = this.mousePos.x - this.startMousePos.x;
-        nowPostit.pos.y = this.mousePos.y - this.startMousePos.y;
+        nowPostit.xAxis = this.mousePos.x - this.startMousePos.x;
+        nowPostit.yAxis = this.mousePos.y - this.startMousePos.y;
       }
     },
   },
@@ -178,9 +177,15 @@ export default {
       this.mousePos = { x: evt.pageX, y: evt.pageY };
     },
     onmouseup() {
+      try {
+        if (this.nowId != -1) {
+          this.update(this.nowId);
+        }
+      } catch (err) {
+        alert(err);
+      }
       this.nowId = -1;
     },
-    // 就是以前的 selectid
     onmousedown(evt, id) {
       console.log(id);
       let isBlock = evt.srcElement.classList.contains("block");
@@ -200,24 +205,107 @@ export default {
     },
     postitCss(p) {
       return {
-        left: p.pos.x + "px",
-        top: p.pos.y + "px",
-        fontSize: (120 - 5) / p.text.length - 5 + "px",
-        backgroundColor: this.colorList.find((o) => o.name == p.color).color,
+        left: p.xAxis + "px",
+        top: p.yAxis + "px",
+        fontSize: (120 - 5) / p.content.length - 5 + "px",
+        backgroundColor: this.colorList.find((o) => o.name == p.category).color,
       };
     },
     addPostit() {
       // 推資料進去 firebase 給後端參考
-      this.postits.push({
-        text: "文字",
-        color: "yellow",
-        pos: { x: 200 + Math.random() * 200, y: 200 + Math.random() * 200 },
-      });
+      // this.postits.push({
+      //   text: "文字",
+      //   color: "yellow",
+      //   pos: { x: 200 + Math.random() * 200, y: 200 + Math.random() * 200 },
+      // });
+      // connect api 建立新便利貼
+      // /project/{projectId}/note
+      this.axios
+        .post("https://cip2021backend.cathaycloudteam.net/project/1/note", {
+          category: "yellow", //color define category
+          content: "文字一",
+          xAxis: (200 + Math.random() * 200).toString(),
+          yAxis: (200 + Math.random() * 200).toString(),
+          boundedContextId: 0, //還沒設置
+          noteName: "文字二", // what is this
+        })
+        .then((res) => {
+          console.log(res.data);
+          this.postits.push(res.data);
+        });
     },
-    setText(pid) {
-      let text = prompt("清輸入新的文字", this.postits[pid].text);
-      if (text) {
-        this.postits[pid].text = text;
+    async getNoteId(pid) {
+      try {
+        let target = -1;
+        await this.axios
+          .get("https://cip2021backend.cathaycloudteam.net/project/1/note")
+          .then((res) => {
+            if (pid != -1) {
+              target = res.data[pid].noteId;
+              console.log("inside func", target);
+            } else {
+              console.log("err");
+            }
+          });
+        return target;
+      } catch (err) {
+        alert(err);
+      }
+    },
+    // use async await to handle the synchronous problem
+    // use await this.getNoteId(pid) to check the current postit's noteid
+    async deletePostit(pid) {
+      try {
+        let target = await this.getNoteId(pid);
+        await this.axios
+          .delete(
+            `https://cip2021backend.cathaycloudteam.net/project/1/note/${target}`
+          )
+          .then(() => {
+            this.postits.splice(pid, 1);
+          });
+      } catch (err) {
+        alert(err);
+      }
+    },
+    async setText(pid) {
+      try {
+        let text = prompt("清輸入新的文字", this.postits[pid].content);
+        if (text) {
+          this.postits[pid].content = text;
+          let target = await this.getNoteId(pid);
+          await this.axios.put(
+            `https://cip2021backend.cathaycloudteam.net/project/1/note/${target}`,
+            {
+              category: this.postits[pid].category,
+              content: text,
+              xAxis: this.postits[pid].xAxis,
+              yAxis: this.postits[pid].yAxis,
+              boundedContextId: this.postits[pid].boundedContextId,
+              noteName: this.postits[pid].noteName,
+            }
+          );
+        }
+      } catch (err) {
+        alert(err);
+      }
+    },
+    async update(pid) {
+      try {
+        let target = await this.getNoteId(pid);
+        await this.axios.put(
+          `https://cip2021backend.cathaycloudteam.net/project/1/note/${target}`,
+          {
+            category: this.postits[pid].category,
+            content: this.postits[pid].content,
+            xAxis: this.postits[pid].xAxis,
+            yAxis: this.postits[pid].yAxis,
+            boundedContextId: this.postits[pid].boundedContextId,
+            noteName: this.postits[pid].noteName,
+          }
+        );
+      } catch (err) {
+        alert(err);
       }
     },
   },
@@ -265,11 +353,6 @@ body,
   overflow-y: scroll;
   max-height: 96vh;
 }
-
-/* .text {
-  pointer-events: none;
-  用了就點不到便利貼
-} */
 
 .buttonList .btn {
   /* width: 20px;
