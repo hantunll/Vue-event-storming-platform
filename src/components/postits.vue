@@ -57,6 +57,9 @@
               />
             </svg>
           </b-button>
+          <b-button class="btnDown" @click="setBoundedContextId(pid)">{{
+            p.boundedContextId
+          }}</b-button>
         </div>
       </div>
     </transition-group>
@@ -288,6 +291,31 @@ export default {
         }
       } catch (err) {
         alert(err);
+      }
+    },
+    async setBoundedContextId(pid) {
+      try {
+        let text = prompt(
+          "請輸入 boundedContextId",
+          this.postits[pid].boundedContextId
+        );
+        if (text) {
+          this.postits[pid].boundedContextId = text;
+          let target = await this.getNoteId(pid);
+          await this.axios.put(
+            `https://cip2021backend.cathaycloudteam.net/project/1/note/${target}`,
+            {
+              category: this.postits[pid].category,
+              content: this.postits[pid].category,
+              xAxis: this.postits[pid].xAxis,
+              yAxis: this.postits[pid].yAxis,
+              boundedContextId: text,
+              noteName: this.postits[pid].noteName,
+            }
+          );
+        }
+      } catch (err) {
+        console.log(err);
       }
     },
     async update(pid) {
